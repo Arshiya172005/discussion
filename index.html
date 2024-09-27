@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discussion App</title>
+  <style>
+    body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background-color: #f4f4f4;
+}
+
+.container {
+  display: flex;
+  width: 80%;
+  max-width: 1200px;
+  height: 600px;
+  border: 1px solid #ccc;
+}
+
+.left-pane, .right-pane {
+  flex: 1;
+  padding: 20px;
+  background-color: white;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  overflow-y: auto;
+}
+
+.left-pane {
+  border-right: 1px solid #ddd;
+}
+
+h2 {
+  margin-top: 0;
+}
+
+ul {
+  list-style-type: none;
+  padding: 0;
+}
+
+li {
+  margin: 10px 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+input, textarea {
+  display: block;
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 10px;
+}
+
+button {
+  padding: 8px 12px;
+  background-color: #28a745;
+  border: none;
+  color: white;
+  cursor: pointer;
+}
+
+button.delete {
+  background-color: #dc3545;
+}
+
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="left-pane">
+      <h2>Questions</h2>
+      <input type="text" id="searchInput" placeholder="Search questions">
+      <ul id="questionList"></ul>
+    </div>
+    <div class="right-pane">
+      <div id="questionForm">
+        <h2>Add a New Question</h2>
+        <form id="newQuestionForm">
+          <input type="text" id="titleInput" placeholder="Title" required>
+          <textarea id="questionInput" placeholder="Enter your question" required></textarea>
+          <button type="submit">Submit</button>
+        </form>
+      </div>
+      <div id="questionDetail" style="display:none;">
+        <h2 id="questionTitle"></h2>
+        <p id="questionText"></p>
+        <div id="responseForm">
+          <h3>Leave a Response</h3>
+          <form id="newResponseForm">
+            <input type="text" id="nameInput" placeholder="Name" required>
+            <textarea id="commentInput" placeholder="Comment" required></textarea>
+            <button type="submit">Submit Response</button>
+          </form>
+        </div>
+        <h3>Previous Responses</h3>
+        <ul id="responseList"></ul>
+        <button id="resolveBtn">Resolve</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    const questionForm = document.getElementById('newQuestionForm');
+const questionInput = document.getElementById('questionInput');
+const titleInput = document.getElementById('titleInput');
+const questionList = document.getElementById('questionList');
+const searchInput = document.getElementById('searchInput');
+const questionDetail = document.getElementById('questionDetail');
+const responseForm = document.getElementById('newResponseForm');
+const resolveBtn = document.getElementById('resolveBtn');
+const questionTitle = document.getElementById('questionTitle');
+const questionText = document.getElementById('questionText');
+const responseList = document.getElementById('responseList');
+
+let questions = JSON.parse(localStorage.getItem('questions')) || [];
+let selectedQuestionIndex = null;
+
+// Load existing questions
+displayQuestions();
+
+// Add a new question
+questionForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const newQuestion = {
+    title: titleInput.value,
+    text: questionInput.value,
+    responses: [],
+    upvotes: 0,
+  };
+  questions.push(newQuestion);
+  localStorage.setItem('questions', JSON.stringify(questions));
+  displayQuestions();
+  titleInput.value = '';
+  questionInput.value = '';
+});
+
+// Display questions
+function displayQuestions() {
+  questionList.innerHTML = '';
+  questions
+    .sort((a, b) => b.upvotes - a.upvotes) // Sort by upvotes
+    .forEach((question, index) => {
+      const li = document.createElement('li');
+      li.innerHTML = `${question.title} (${question.upvotes} votes)`;
+      li.addEventListener('click', () => selectQuestion(index));
+      questionList.appendChild(li);
+    });
+}
+
+// Select a question to view and add responses
+function selectQuestion(index) {
+  selectedQuestionIndex = index;
+  const question = questions[index];
+  questionDetail.style.display = 'block';
+  questionTitle.textContent = question.title;
+  questionText.textContent = question.text;
+  displayResponses(question.responses);
+}
+
+// Display responses
+function displayResponses(responses) {
+  responseList.innerHTML = '';
+  responses.forEach((response, index) => {
+    const li = document.createElement('li');
+    li.innerHTML = `${response.name}: ${response.comment} (${response.upvotes} votes)
+      <button onclick="upvoteResponse(${index})">Upvote</button>
+      <button onclick="downvoteResponse(${index})">Downvote</button>`;
+    responseList.appendChild(li);
+  });
+}
+
+// Add a response
+responseForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const response = {
+    name: document.getElementById('nameInput').value,
+    comment: document.getElementById('commentInput').value,
+    upvotes: 0,
+  };
+  questions[selectedQuestionIndex].responses.push(response);
+  localStorage.setItem('questions', JSON.stringify(questions));
+  displayResponses(questions[selectedQuestionIndex].responses);
+  document.getElementById('nameInput').value = '';
+  document.getElementById('commentInput').value = '';
+});
+
+// Resolve question
+resolveBtn.addEventListener('click', () => {
+  questions.splice(selectedQuestionIndex, 1);
+  localStorage.setItem('questions', JSON.stringify(questions));
+  questionDetail.style.display = 'none';
+  displayQuestions();
+});
+
+// Search questions
+searchInput.addEventListener('input', (e) => {
+  const searchTerm = e.target.value.toLowerCase();
+  const filteredQuestions = questions.filter(q => q.title.toLowerCase().includes(searchTerm));
+  displayFilteredQuestions(filteredQuestions);
+});
+
+// Display filtered questions
+function displayFilteredQuestions(filteredQuestions) {
+  questionList.innerHTML = '';
+  filteredQuestions.forEach((question, index) => {
+    const li = document.createElement('li');
+    li.innerHTML = `${question.title} (${question.upvotes} votes)`;
+    li.addEventListener('click', () => selectQuestion(index));
+    questionList.appendChild(li);
+  });
+}
+
+// Upvote/Downvote response
+function upvoteResponse(index) {
+  questions[selectedQuestionIndex].responses[index].upvotes++;
+  localStorage.setItem('questions', JSON.stringify(questions));
+  displayResponses(questions[selectedQuestionIndex].responses);
+}
+
+function downvoteResponse(index) {
+  questions[selectedQuestionIndex].responses[index].upvotes--;
+  localStorage.setItem('questions', JSON.stringify(questions));
+  displayResponses(questions[selectedQuestionIndex].responses);
+}
+
+  </script>
+</body>
+</html>
+
